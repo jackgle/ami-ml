@@ -157,7 +157,7 @@ def _create_samples(
             "__key__": (
                 os.path.splitext(row[image_path_column])[0]
                 .lower()
-                .replace(".", "_"),
+                .replace(".", "_")
                 + f"_{idx}"
             ),
             "jpg": image_data,
