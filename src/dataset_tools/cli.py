@@ -22,7 +22,7 @@ To add a new command, create a new function below following these instructions:
 """
 
 import functools
-
+import json
 import click
 
 # Command key constants
@@ -633,14 +633,13 @@ def clean_dataset_command(
     help="Whether to resample the dataset splits",
 )
 @click.option(
-    "--resample_target_count",
-    type=bool,
-    default=dict[str, int],
+    "--resample-target-counts",
+    type=str,
+    default=None,
     help=(
-        "Dictionary with keys 'train', 'val', 'test', specifying target "
-        "number of instances per category."
-        "If None is given as a value, that associated split will not be resampled."
-    )
+        "JSON string like '{\"train\": 100, \"val\": 30, \"test\": 30}' "
+        "specifying resample targets. If used in Python directly, pass a dict."
+    ),
 )
 def split_dataset_command(
     dataset_csv: str,
@@ -652,10 +651,14 @@ def split_dataset_command(
     max_instances: int,
     min_instances: int,
     resample: bool,
-    resample_target_counts: dict[str, int],
+    resample_target_counts: str,
     random_seed: int,
 ):
     from src.dataset_tools.split_dataset import split_dataset
+
+    # part resample count dict if string from command line
+    if isinstance(resample_target_counts, str):
+        resample_target_counts = json.loads(resample_target_counts)
 
     split_dataset(
         dataset_csv=dataset_csv,
