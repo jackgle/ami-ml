@@ -96,12 +96,12 @@ def _resample_set(df, target_count, category_key='speciesKey', random_state=42):
         return df  # No resampling if target_count is None
     resampled = []
     for cls, group in df.groupby(category_key):
-        if len(group) > target_number:
+        if len(group) > target_count:
             # Downsample
-            sampled = group.sample(n=target_number, random_state=random_state)
-        elif len(group) < target_number:
+            sampled = group.sample(n=target_count, random_state=random_state)
+        elif len(group) < target_count:
             # Upsample: keep all, then sample additional with replacement
-            n_to_add = target_number - len(group)
+            n_to_add = target_count - len(group)
             additional = group.sample(n=n_to_add, replace=True, random_state=random_state)
             sampled = pd.concat([group, additional], ignore_index=True)
         else:
