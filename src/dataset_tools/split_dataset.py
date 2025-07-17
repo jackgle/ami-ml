@@ -91,6 +91,25 @@ def _subsample_sets(
     return test_set, train_set, val_set
 
 
+def _resample_set(df, target_count, category_key='speciesKey', random_state=42):
+    if target_count is None:
+        return df  # No resampling if target_count is None
+    resampled = []
+    for cls, group in df.groupby(category_key):
+        if len(group) > target_number:
+            # Downsample
+            sampled = group.sample(n=target_number, random_state=random_state)
+        elif len(group) < target_number:
+            # Upsample: keep all, then sample additional with replacement
+            n_to_add = target_number - len(group)
+            additional = group.sample(n=n_to_add, replace=True, random_state=random_state)
+            sampled = pd.concat([group, additional], ignore_index=True)
+        else:
+            sampled = group
+        resampled.append(sampled)
+    return pd.concat(resampled, ignore_index=True)
+
+
 def split_dataset(
     dataset_csv: str,
     split_prefix: str,
@@ -100,6 +119,8 @@ def split_dataset(
     category_key: str,
     max_instances: int,
     min_instances: int,
+    resample: bool,  # whether to resample the dataset
+    resample_target_counts: dict[str, int],  # dictionary with keys 'train', 'val', 'test', specifying target number of instances per category
     random_seed: int,
 ):
     set_random_seeds(random_seed)
@@ -154,6 +175,13 @@ def split_dataset(
         train_set = train_set[train_set[category_key].isin(train_categories)].copy()
         val_set = val_set[val_set[category_key].isin(train_categories)].copy()
         test_set = test_set[test_set[category_key].isin(train_categories)].copy()
+
+    if resample:
+        if not resample_target_counts:
+            raise ValueError("resample_target_counts must be provided when resample is True")
+        train_set = _resample_set(train_set, resample_target_counts.get('train', 100), category_key)
+        val_set = _resample_set(val_set, resample_target_counts.get('val', 100), category_key)
+        test_set = _resample_set(test_set, resample_target_counts.get('test', 100), category_key)
 
     data = {"train": train_set, "val": val_set, "test": test_set}
     for set_name in data:

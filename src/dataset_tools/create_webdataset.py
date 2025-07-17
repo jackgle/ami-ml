@@ -116,7 +116,7 @@ def _create_samples(
 ):
     resize_transform = _get_resize_transform(resize_min_size)
 
-    for _, row in dataset_df.iterrows():
+    for idx, row in dataset_df.iterrows():
         fpath = os.path.join(dataset_path, row[image_path_column])
         if not os.path.isfile(fpath):
             print(f"File {fpath} not found", flush=True)
@@ -154,9 +154,12 @@ def _create_samples(
                 image_data = f.read()
 
         sample = {
-            "__key__": os.path.splitext(row[image_path_column])[0]
-            .lower()
-            .replace(".", "_"),
+            "__key__": (
+                os.path.splitext(row[image_path_column])[0]
+                .lower()
+                .replace(".", "_"),
+                + f"_{idx}"
+            ),
             "jpg": image_data,
             "cls": categories_map[str(row[label_column])],
         }

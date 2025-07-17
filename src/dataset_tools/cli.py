@@ -626,6 +626,22 @@ def clean_dataset_command(
     default=0.1,
     help="Fraction of data used for the validation set",
 )
+@click.option(
+    "--resample",
+    type=bool,
+    default=False,
+    help="Whether to resample the dataset splits",
+)
+@click.option(
+    "--resample_target_count",
+    type=bool,
+    default=dict[str, int],
+    help=(
+        "Dictionary with keys 'train', 'val', 'test', specifying target "
+        "number of instances per category."
+        "If None is given as a value, that associated split will not be resampled."
+    )
+)
 def split_dataset_command(
     dataset_csv: str,
     split_prefix: str,
@@ -635,6 +651,8 @@ def split_dataset_command(
     category_key: str,
     max_instances: int,
     min_instances: int,
+    resample: bool,
+    resample_target_counts: dict[str, int],
     random_seed: int,
 ):
     from src.dataset_tools.split_dataset import split_dataset
@@ -648,6 +666,8 @@ def split_dataset_command(
         category_key=category_key,
         max_instances=max_instances,
         min_instances=min_instances,
+        resample=resample,
+        resample_target_counts=resample_target_counts,
         random_seed=random_seed,
     )
 
