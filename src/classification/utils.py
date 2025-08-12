@@ -178,7 +178,7 @@ def build_model(
         img_size = 128 if model_type == VIT_B16_128 else None
         if model_type == VIT_B16_128:
             model_type = "vit_base_patch16_224_in21k"
-        model = ImageWithStaticFeaturesModel(
+        model = ImageModelWithStaticFeatures(
             model_type=model_type,
             num_classes=num_classes,
             static_feat_num_categories=static_feat_num_categories,
