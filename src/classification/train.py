@@ -153,6 +153,7 @@ def train_model(
     existing_weights: Optional[str],
     static_features: bool = False,
     static_feature_keys: Optional[list[str]] = None,
+    static_feat_num_categories: tp.Optional[list[int]] = None,
     total_epochs: int,
     warmup_epochs: int,
     early_stopping: int,
@@ -189,7 +190,7 @@ def train_model(
         num_classes,
         existing_weights,
         static_features=static_features,
-        static_feat_dim=len(static_feature_keys),
+        static_feat_num_categories=static_feat_num_categories,
     )
 
     # Setup dataloaders

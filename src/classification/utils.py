@@ -166,7 +166,7 @@ def build_model(
     checkpoint: bool = False,
     static_features: bool = False,
     static_feat_num_categories: tp.Optional[list[int]] = None,
-    static_embed_dim: int = 4,
+    static_embed_dim: int = 3,
 ) -> torch.nn.Module:
     """Model builder"""
 
