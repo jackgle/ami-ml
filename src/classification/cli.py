@@ -98,6 +98,19 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     help="Existing weights to be loaded, if available",
 )
 @click.option(
+    "--static_features",
+    is_flag=True,
+    default=False,
+    help="Whether to use static features in the model",
+)
+@click.option(
+    "--static_feature_keys",
+    type=str,
+    multiple=True,
+    default=None,
+    help="Keys of static features to be used in the model",
+)
+@click.option(
     "--total_epochs",
     type=int,
     default=30,
@@ -230,6 +243,8 @@ def train_model_command(
     model_type: str,
     num_classes: int,
     existing_weights: Optional[str],
+    static_features: bool = False,
+    static_feature_keys: Optional[list[str]] = None,
     total_epochs: int,
     warmup_epochs: int,
     early_stopping: int,
@@ -259,6 +274,8 @@ def train_model_command(
         model_type=model_type,
         num_classes=num_classes,
         existing_weights=existing_weights,
+        static_features=static_features,
+        static_feature_keys=static_feature_keys,
         total_epochs=total_epochs,
         warmup_epochs=warmup_epochs,
         early_stopping=early_stopping,

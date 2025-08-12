@@ -98,6 +98,8 @@ def build_webdataset_pipeline(
     preprocess_mode: str,
     mixed_resolution_data_aug: bool = False,
     is_training: bool = False,
+    use_static_features: bool = False,
+    static_feature_keys: list[str] = None,
 ) -> torch.utils.data.DataLoader:
     """Main dataset builder and loader function"""
 
@@ -112,11 +114,25 @@ def build_webdataset_pipeline(
     )
 
     # Decode dataset
-    dataset_decoded = (
-        dataset.decode("pil")
-        .to_tuple("jpg", "cls")
-        .map_tuple(image_transform, _identity)
-    )
+    def extract_static_from_json(json_dict):
+        feats = [json_dict[k] for k in static_feature_keys]
+        return torch.tensor(feats, dtype=torch.float32)
+
+    if use_static_features:
+        if static_feature_keys is None:
+            raise ValueError("static_feature_keys must be provided when use_static_features=True")
+        # Expecting samples to have: jpg, cls, json
+        dataset_decoded = (
+            dataset.decode("pil")
+            .to_tuple("jpg", "cls", "json")
+            .map_tuple(image_transform, _identity, extract_static_from_json)
+        )
+    else:
+        dataset_decoded = (
+            dataset.decode("pil")
+            .to_tuple("jpg", "cls")
+            .map_tuple(image_transform, _identity)
+        )
 
     # Create dataLoader
     dataset_loader = torch.utils.data.DataLoader(

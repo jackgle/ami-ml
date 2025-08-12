@@ -12,6 +12,7 @@ import braceexpand
 import numpy as np
 import timm
 import torch
+import torch.nn as nn
 from timm.scheduler import CosineLRScheduler
 
 from src.classification.constants import (
@@ -118,6 +119,36 @@ def get_webdataset_length(sharedurl: str) -> int:
     return int(sum(counts))
 
 
+class ImageModelWithStaticFeatures(nn.Module):
+    def __init__(
+        self,
+        model_type: str,
+        num_classes: int,
+        static_feat_dim: int,
+        static_embed_dim: int = 32,
+        pretrained: bool = True,
+        img_size: int = None,
+    ):
+        super().__init__()
+        model_args = {"pretrained": pretrained, "num_classes": 0}
+        if img_size is not None:
+            model_args["img_size"] = img_size
+        self.backbone = timm.create_model(model_type, **model_args)
+        backbone_out_dim = self.backbone.num_features
+
+        self.static_embed = nn.Sequential(
+            nn.Linear(static_feat_dim, static_embed_dim),
+            nn.ReLU(),
+        )
+        self.classifier = nn.Linear(backbone_out_dim + static_embed_dim, num_classes)
+
+    def forward(self, x_img, x_static):
+        img_feat = self.backbone(x_img)
+        static_feat = self.static_embed(x_static)
+        x = torch.cat([img_feat, static_feat], dim=1)
+        return self.classifier(x)
+
+
 def build_model(
     device: str,
     model_type: str,
@@ -125,20 +156,34 @@ def build_model(
     existing_weights: tp.Optional[str],
     pretrained: bool = True,
     checkpoint: bool = False,
+    static_features: bool = False,
+    static_feat_dim: int = None,
+    static_embed_dim: int = 4,
 ) -> torch.nn.Module:
     """Model builder"""
 
     if model_type not in AVAILABLE_MODELS:
         raise RuntimeError(f"Model {model_type} not implemented")
 
-    model_arguments = {"pretrained": pretrained, "num_classes": num_classes}
-    if model_type == VIT_B16_128:
-        # There is no off-the-shelf ViT model for 128x128 image size,
-        # so we use 224x224 model with a custom input image size
-        model_type = "vit_base_patch16_224_in21k"
-        model_arguments["img_size"] = 128
-
-    model = timm.create_model(model_type, **model_arguments)
+    if static_features:
+        # For ViT special case
+        img_size = 128 if model_type == VIT_B16_128 else None
+        if model_type == VIT_B16_128:
+            model_type = "vit_base_patch16_224_in21k"
+        model = ImageWithStaticFeaturesModel(
+            model_type=model_type,
+            num_classes=num_classes,
+            static_feat_dim=static_feat_dim,
+            static_embed_dim=static_embed_dim,
+            pretrained=pretrained,
+            img_size=img_size,
+        )
+    else:
+        model_arguments = {"pretrained": pretrained, "num_classes": num_classes}
+        if model_type == VIT_B16_128:
+            model_type = "vit_base_patch16_224_in21k"
+            model_arguments["img_size"] = 128
+        model = timm.create_model(model_type, **model_arguments)
 
     # If available, load existing weights
     if existing_weights:

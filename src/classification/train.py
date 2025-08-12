@@ -72,14 +72,18 @@ def _train_model_for_one_epoch(
 
     model.train()
     for batch_data in train_dataloader:
-        images, labels = batch_data
-        images, labels = images.to(device, non_blocking=True), labels.to(
-            device, non_blocking=True
-        )
+        images, labels, *rest = batch_data
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+        # If static features are present, move them to device
+        static_feats = rest[0].to(device, non_blocking=True) if rest else None
 
         # Forward pass, loss calculation, backward pass, and optimizer step
         optimizer.zero_grad()
-        outputs = model(images)
+        if static_feats is not None:
+            outputs = model(images, static_feats)
+        else:
+            outputs = model(images)
         loss = loss_function(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -115,13 +119,16 @@ def _evaluate_model(
 
     model.eval()
     for batch_data in dataloader:
-        images, labels = batch_data
-        images, labels = images.to(device, non_blocking=True), labels.to(
-            device, non_blocking=True
-        )
+        images, labels, *rest = batch_data
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+        static_feats = rest[0].to(device, non_blocking=True) if rest else None
 
         with torch.no_grad():
-            outputs = model(images)
+            if static_feats is not None:
+                outputs = model(images, static_feats)
+            else:
+                outputs = model(images)
             loss = loss_function(outputs, labels)
 
         # Calculate the average loss per sample
@@ -144,6 +151,8 @@ def train_model(
     model_type: str,
     num_classes: int,
     existing_weights: Optional[str],
+    static_features: bool = False,
+    static_feature_keys: Optional[list[str]] = None,
     total_epochs: int,
     warmup_epochs: int,
     early_stopping: int,
@@ -174,7 +183,14 @@ def train_model(
     # Model initialization
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"The available device is {device}.")
-    model = build_model(device, model_type, num_classes, existing_weights)
+    model = build_model(
+        device,
+        model_type,
+        num_classes,
+        existing_weights,
+        static_features=static_features,
+        static_feat_dim=len(static_feature_keys),
+    )
 
     # Setup dataloaders
     train_dataloader = build_webdataset_pipeline(
@@ -184,18 +200,24 @@ def train_model(
         preprocess_mode,
         mixed_resolution_data_aug=mixed_resolution_data_aug,
         is_training=True,
+        use_static_features=static_features,
+        static_feature_keys=static_feature_keys,
     )
     val_dataloader = build_webdataset_pipeline(
         val_webdataset,
         image_input_size,
         batch_size,
         preprocess_mode,
+        use_static_features=static_features,
+        static_feature_keys=static_feature_keys,
     )
     test_dataloader = build_webdataset_pipeline(
         test_webdataset,
         image_input_size,
         batch_size,
         preprocess_mode,
+        use_static_features=static_features,
+        static_feature_keys=static_feature_keys,
     )
 
     # Other training ingredients
