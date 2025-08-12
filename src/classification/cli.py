@@ -111,6 +111,13 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     help="Keys of static features to be used in the model",
 )
 @click.option(
+    "--static_feat_num_categories",
+    type=int,
+    multiple=True,
+    default=None,
+    help="Number of categories for each static feature (e.g., [num_regions, num_countries])",
+)
+@click.option(
     "--total_epochs",
     type=int,
     default=30,
