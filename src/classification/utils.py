@@ -120,12 +120,16 @@ def get_webdataset_length(sharedurl: str) -> int:
 
 
 class ImageModelWithStaticFeatures(nn.Module):
+    """Image model with static features concatenated to the output of the backbone.
+    This model is designed to handle static categorical features by embedding them
+    and concatenating them to the image features before classification.
+    """
     def __init__(
         self,
         model_type: str,
         num_classes: int,
-        static_feat_dim: int,
-        static_embed_dim: int = 32,
+        static_feat_num_categories: list[int],  # e.g., [num_regions, num_countries]
+        static_embed_dim: int = 3,
         pretrained: bool = True,
         img_size: int = None,
     ):
@@ -136,15 +140,19 @@ class ImageModelWithStaticFeatures(nn.Module):
         self.backbone = timm.create_model(model_type, **model_args)
         backbone_out_dim = self.backbone.num_features
 
-        self.static_embed = nn.Sequential(
-            nn.Linear(static_feat_dim, static_embed_dim),
-            nn.ReLU(),
-        )
-        self.classifier = nn.Linear(backbone_out_dim + static_embed_dim, num_classes)
+        # One embedding per categorical feature
+        self.embeddings = nn.ModuleList([
+            nn.Embedding(num_cat, static_embed_dim) for num_cat in static_feat_num_categories
+        ])
+        self.classifier = nn.Linear(backbone_out_dim + static_embed_dim * len(static_feat_num_categories), num_classes)
 
-    def forward(self, x_img, x_static):
+    def forward(self, x_img, x_static_cat):
         img_feat = self.backbone(x_img)
-        static_feat = self.static_embed(x_static)
+        # x_static_cat: shape (batch_size, num_static_features)
+        static_embeds = [
+            emb(x_static_cat[:, i].long()) for i, emb in enumerate(self.embeddings)
+        ]
+        static_feat = torch.cat(static_embeds, dim=1)
         x = torch.cat([img_feat, static_feat], dim=1)
         return self.classifier(x)
 
@@ -157,7 +165,7 @@ def build_model(
     pretrained: bool = True,
     checkpoint: bool = False,
     static_features: bool = False,
-    static_feat_dim: int = None,
+    static_feat_num_categories: tp.Optional[list[int]] = None,
     static_embed_dim: int = 4,
 ) -> torch.nn.Module:
     """Model builder"""
@@ -173,7 +181,7 @@ def build_model(
         model = ImageWithStaticFeaturesModel(
             model_type=model_type,
             num_classes=num_classes,
-            static_feat_dim=static_feat_dim,
+            static_feat_num_categories=static_feat_num_categories,
             static_embed_dim=static_embed_dim,
             pretrained=pretrained,
             img_size=img_size,
