@@ -42,18 +42,18 @@ SupportedOptimizers = tp.Literal[*AVAILABLE_OPTIMIZERS]
 SupportedLearningRateSchedulers = tp.Literal[*AVAILABLE_LR_SCHEDULERS]
 
 # Command key constants
-# Make sure to add them to COMMAND_KEYS frozenset
+# make sure to add them to COMMAND_KEYS frozenset
 TRAIN_CMD = "train_cmd"
 
-# This is most useful to automatically test the CLI
+# this is most useful to automatically test the CLI
 COMMAND_KEYS = frozenset([TRAIN_CMD])
 
-# Command dictionary
+# command dictionary
 COMMANDS = {
     TRAIN_CMD: "train-model",
 }
 
-# Command help text dictionary
+# command help text dictionary
 COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
 
 
@@ -61,7 +61,7 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
 # Commands  #
 # # # # # # #
 
-# The order of declaration of the commands affect the order
+# the order of declaration of the commands affect the order
 # in which they appear in the CLI
 
 
@@ -205,8 +205,10 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     "--weight_on_order_loss",
     type=float,
     default=0.5,
-    help="Weight on order-level classification for the custom loss function. The weight"
-    " on binary is 1-order.",
+    help=(
+        "Weight on order-level classification for the custom loss function. "
+        "The weight on binary is 1-order."
+    ),
 )
 @click.option(
     "--label_smoothing",
@@ -218,8 +220,10 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     "--mixed_resolution_data_aug",
     type=bool,
     default=True,
-    help="A custom mixed resolution data augmentation technique. "
-    "See The AMI Dataset ECCV 2024 paper for more details.",
+    help=(
+        "A custom mixed resolution data augmentation technique. "
+        "See The AMI Dataset ECCV 2024 paper for more details."
+    ),
 )
 @click.option(
     "--model_save_directory",
@@ -245,6 +249,43 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     default=None,
     help="User-defined training run name",
 )
+# new: two-stage training knobs (restricted to e2e or head_all)
+@click.option(
+    "--train_strategy",
+    type=click.Choice(["e2e", "head_all"]),
+    default="e2e",
+    help="Training flow: end-to-end, or head-only then unfreeze all",
+)
+@click.option(
+    "--stage1_epochs",
+    type=int,
+    default=8,
+    help="Epochs to train head-only before unfreezing (if head_all)",
+)
+@click.option(
+    "--backbone_lr_scale",
+    type=float,
+    default=0.1,
+    help="Multiplier for backbone LR after unfreezing: lr_backbone = learning_rate * scale",
+)
+@click.option(
+    "--freeze_bn_stats/--no-freeze_bn_stats",
+    default=True,
+    help="Keep BatchNorm running stats frozen (eval mode) on small datasets",
+)
+@click.option(
+    "--reset_opt_on_unfreeze/--no-reset_opt_on_unfreeze",
+    default=True,
+    help="Reinitialize optimizer when unfreezing to avoid stale moments",
+)
+@click.option(
+    "--head_param_patterns",
+    type=str,
+    multiple=True,
+    default=("head", "fc", "classifier"),
+    help="Parameter-name substrings that identify the classification head",
+)
+
 def train_model_command(
     random_seed: int,
     model_type: str,
@@ -274,6 +315,13 @@ def train_model_command(
     wandb_entity: Optional[str],
     wandb_project: Optional[str],
     wandb_run_name: Optional[str],
+    # new args
+    train_strategy: str,
+    stage1_epochs: int,
+    backbone_lr_scale: float,
+    freeze_bn_stats: bool,
+    reset_opt_on_unfreeze: bool,
+    head_param_patterns: tuple[str, ...],
 ):
     from src.classification.train import train_model
 
@@ -306,6 +354,13 @@ def train_model_command(
         wandb_entity=wandb_entity,
         wandb_project=wandb_project,
         wandb_run_name=wandb_run_name,
+        # new args forwarded to trainer
+        train_strategy=train_strategy,
+        stage1_epochs=stage1_epochs,
+        backbone_lr_scale=backbone_lr_scale,
+        freeze_bn_stats=freeze_bn_stats,
+        reset_opt_on_unfreeze=reset_opt_on_unfreeze,
+        head_param_patterns=list(head_param_patterns),
     )
 
 
@@ -313,7 +368,7 @@ def train_model_command(
 # Main CLI configuration  #
 # # # # # # # # # # # # # #
 class OrderCommands(click.Group):
-    """This class is necessary to order the commands the way we want to."""
+    """this class is necessary to order the commands the way we want to."""
 
     def list_commands(self, ctx: click.Context) -> list[str]:
         return list(self.commands)
@@ -321,10 +376,10 @@ class OrderCommands(click.Group):
 
 @click.group(cls=OrderCommands)
 def cli():
-    """This is the main command line interface for the classification tools."""
+    """this is the main command line interface for the classification tools."""
 
 
-# Following is an automated way to add all functions containing the word `command`
+# following is an automated way to add all functions containing the word `command`
 # in their name instead of manually having to add them.
 all_objects = globals()
 functions = [
