@@ -260,6 +260,9 @@ def train_model(
     # set random seeds
     set_random_seeds(random_seed)
 
+    if static_features and "embeddings" not in head_param_patterns:
+        head_param_patterns.append("embeddings")  # train static feature embeddings in stage 1
+
     # model initialization
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"the available device is {device}.")
