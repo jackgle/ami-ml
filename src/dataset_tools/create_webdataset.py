@@ -166,7 +166,7 @@ def _create_samples(
 
         # Add sex label if present
         if "sex" in row:
-            sample["sex"] = row["sex"]
+            sample["sexc.ls"] = row["sex"]
 
         if columns_to_json is not None:
             json_data = _prepare_json_data(row, columns_to_json)
