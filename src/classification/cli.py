@@ -69,6 +69,11 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
 # Train Model Command
 #
 @click.command(
+@click.option(
+    "--predict_sex/--no-predict_sex",
+    default=False,
+    help="Enable binary sex prediction head in the model",
+)
     name=COMMANDS[TRAIN_CMD],
     help=COMMANDS_HELP[TRAIN_CMD],
     context_settings={"show_default": True},
@@ -322,6 +327,7 @@ def train_model_command(
     freeze_bn_stats: bool,
     reset_opt_on_unfreeze: bool,
     head_param_patterns: tuple[str, ...],
+    predict_sex: bool,
 ):
     from src.classification.train import train_model
 
@@ -361,6 +367,7 @@ def train_model_command(
         freeze_bn_stats=freeze_bn_stats,
         reset_opt_on_unfreeze=reset_opt_on_unfreeze,
         head_param_patterns=list(head_param_patterns),
+        predict_sex=predict_sex,
     )
 
 

@@ -151,35 +151,56 @@ def _train_model_for_one_epoch(
     running_accuracy = AverageMeter()
 
     model.train()
+    # Check if model supports sex prediction
+    sex_prediction = hasattr(model, 'predict_sex') and getattr(model, 'predict_sex', False)
+    running_sex_loss = AverageMeter() if sex_prediction else None
+    running_sex_accuracy = AverageMeter() if sex_prediction else None
+
     for batch_data in train_dataloader:
-        images, labels, *rest = batch_data
+        if sex_prediction:
+            images, species_labels, sex_labels, *rest = batch_data
+            sex_labels = sex_labels.to(device, non_blocking=True).float()
+        else:
+            images, species_labels, *rest = batch_data
         images = images.to(device, non_blocking=True)
-        labels = labels.to(device, non_blocking=True)
+        species_labels = species_labels.to(device, non_blocking=True)
         static_feats = rest[0].to(device, non_blocking=True) if rest else None
 
-        # forward + backward
         optimizer.zero_grad(set_to_none=True)
         outputs = model(images, static_feats) if static_feats is not None else model(images)
-        loss = loss_function(outputs, labels)
+        if sex_prediction:
+            species_logits, sex_logits = outputs
+            species_loss = loss_function(species_logits, species_labels)
+            sex_loss_fn = torch.nn.BCEWithLogitsLoss()
+            sex_loss = sex_loss_fn(sex_logits, sex_labels)
+            loss = species_loss + sex_loss
+        else:
+            species_logits = outputs
+            loss = loss_function(species_logits, species_labels)
+
         loss.backward()
         if grad_clip is not None:
             torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
         optimizer.step()
 
-        # update meters
         running_loss.update(loss.item())
-        _, predicted = torch.max(outputs, 1)
-        running_accuracy.update((predicted == labels).sum().item() / labels.size(0))
+        _, predicted = torch.max(species_logits, 1)
+        running_accuracy.update((predicted == species_labels).sum().item() / species_labels.size(0))
+        if sex_prediction:
+            running_sex_loss.update(sex_loss.item())
+            sex_pred = (torch.sigmoid(sex_logits) > 0.5).float()
+            running_sex_accuracy.update((sex_pred == sex_labels).sum().item() / sex_labels.size(0))
 
-        # per-step lr schedule
         if learning_rate_scheduler is not None:
             total_train_steps_current += 1
-            # timm schedulers commonly expose step_update for per-iteration stepping
             step_update = getattr(learning_rate_scheduler, "step_update", None)
             if callable(step_update):
                 learning_rate_scheduler.step_update(num_updates=total_train_steps_current)
 
     metrics = {"train_loss": running_loss.avg, "train_accuracy": running_accuracy.avg}
+    if sex_prediction:
+        metrics["sex_loss"] = running_sex_loss.avg
+        metrics["sex_accuracy"] = running_sex_accuracy.avg
     return metrics, total_train_steps_current
 
 
@@ -192,25 +213,47 @@ def _evaluate_model(
 ) -> dict:
     """evaluate model either for validation or test set"""
 
+    sex_prediction = hasattr(model, 'predict_sex') and getattr(model, 'predict_sex', False)
+    running_sex_loss = AverageMeter() if sex_prediction else None
+    running_sex_accuracy = AverageMeter() if sex_prediction else None
     running_loss = AverageMeter()
     running_accuracy = AverageMeter()
 
     model.eval()
     for batch_data in dataloader:
-        images, labels, *rest = batch_data
+        if sex_prediction:
+            images, species_labels, sex_labels, *rest = batch_data
+            sex_labels = sex_labels.to(device, non_blocking=True).float()
+        else:
+            images, species_labels, *rest = batch_data
         images = images.to(device, non_blocking=True)
-        labels = labels.to(device, non_blocking=True)
+        species_labels = species_labels.to(device, non_blocking=True)
         static_feats = rest[0].to(device, non_blocking=True) if rest else None
 
         with torch.no_grad():
             outputs = model(images, static_feats) if static_feats is not None else model(images)
-            loss = loss_function(outputs, labels)
+            if sex_prediction:
+                species_logits, sex_logits = outputs
+                species_loss = loss_function(species_logits, species_labels)
+                sex_loss_fn = torch.nn.BCEWithLogitsLoss()
+                sex_loss = sex_loss_fn(sex_logits, sex_labels)
+                loss = species_loss + sex_loss
+            else:
+                species_logits = outputs
+                loss = loss_function(species_logits, species_labels)
 
         running_loss.update(loss.item())
-        _, predicted = torch.max(outputs, 1)
-        running_accuracy.update((predicted == labels).sum().item() / labels.size(0))
+        _, predicted = torch.max(species_logits, 1)
+        running_accuracy.update((predicted == species_labels).sum().item() / species_labels.size(0))
+        if sex_prediction:
+            running_sex_loss.update(sex_loss.item())
+            sex_pred = (torch.sigmoid(sex_logits) > 0.5).float()
+            running_sex_accuracy.update((sex_pred == sex_labels).sum().item() / sex_labels.size(0))
 
     metrics = {f"{set_type}_loss": running_loss.avg, f"{set_type}_accuracy": running_accuracy.avg}
+    if sex_prediction:
+        metrics[f"{set_type}_sex_loss"] = running_sex_loss.avg
+        metrics[f"{set_type}_sex_accuracy"] = running_sex_accuracy.avg
     return metrics
 
 
@@ -266,6 +309,7 @@ def train_model(
     # model initialization
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"the available device is {device}.")
+    # Add predict_sex argument if you want to enable sex prediction
     model = build_model(
         device,
         model_type,
@@ -273,6 +317,7 @@ def train_model(
         existing_weights,
         static_features=static_features,
         static_feat_num_categories=static_feat_num_categories,
+        predict_sex=True,  # Set to True to enable sex prediction
     )
 
     # setup dataloaders
@@ -433,27 +478,35 @@ def train_model(
                 lowest_val_loss = val_metrics["val_loss"]
                 early_stopping_count = 0
 
-            print(
+            sex_prediction = hasattr(model, 'predict_sex') and getattr(model, 'predict_sex', False)
+            print_str = (
                 f"Epoch [{epoch:02d}/{total_epochs}]: "
                 f"Train Loss: {train_metrics['train_loss']:.4f}, "
                 f"Val Loss: {val_metrics['val_loss']:.4f}, "
                 f"Train Acc: {train_metrics['train_accuracy']*100:.2f}%, "
                 f"Val Acc: {val_metrics['val_accuracy']*100:.2f}%, "
-                f"LR: {optimizer.param_groups[0]['lr']:.6f}",
-                flush=True,
+                f"LR: {optimizer.param_groups[0]['lr']:.6f}"
             )
+            if sex_prediction:
+                print_str += (
+                    f", Train Sex Acc: {train_metrics['sex_accuracy']*100:.2f}%, "
+                    f"Val Sex Acc: {val_metrics['val_sex_accuracy']*100:.2f}%"
+                )
+            print(print_str, flush=True)
 
             if wandb_entity or wandb_project:
-                wandb.log(
-                    {
-                        "epoch": epoch,
-                        "time_per_epoch_mins": (time.time() - epoch_start_time) / 60,
-                        "train_loss": train_metrics["train_loss"],
-                        "val_loss": val_metrics["val_loss"],
-                        "train_accuracy": train_metrics["train_accuracy"],
-                        "val_accuracy": val_metrics["val_accuracy"],
-                    }
-                )
+                log_dict = {
+                    "epoch": epoch,
+                    "time_per_epoch_mins": (time.time() - epoch_start_time) / 60,
+                    "train_loss": train_metrics["train_loss"],
+                    "val_loss": val_metrics["val_loss"],
+                    "train_accuracy": train_metrics["train_accuracy"],
+                    "val_accuracy": val_metrics["val_accuracy"],
+                }
+                if sex_prediction:
+                    log_dict["train_sex_accuracy"] = train_metrics["sex_accuracy"]
+                    log_dict["val_sex_accuracy"] = val_metrics["val_sex_accuracy"]
+                wandb.log(log_dict)
 
             if early_stopping_count >= early_stopping:
                 print(
@@ -618,9 +671,15 @@ def train_model(
 
     # final evaluation
     test_metrics = _evaluate_model(model, device, loss_function, test_dataloader, "test")
-    print(f"the test accuracy is {test_metrics['test_accuracy']*100:.2f}%.", flush=True)
+    print_str = f"the test accuracy is {test_metrics['test_accuracy']*100:.2f}%."
+    if 'test_sex_accuracy' in test_metrics:
+        print_str += f" Test sex accuracy: {test_metrics['test_sex_accuracy']*100:.2f}%"
+    print(print_str, flush=True)
 
     if wandb_entity or wandb_project:
-        wandb.log({"test_accuracy": test_metrics["test_accuracy"]})
+        log_dict = {"test_accuracy": test_metrics["test_accuracy"]}
+        if 'test_sex_accuracy' in test_metrics:
+            log_dict["test_sex_accuracy"] = test_metrics["test_sex_accuracy"]
+        wandb.log(log_dict)
         wandb.log_artifact(f"{model_save_path}_checkpoint.pt", type="model", name=wandb_run_name)
         wandb.finish()

@@ -100,6 +100,7 @@ def build_webdataset_pipeline(
     is_training: bool = False,
     use_static_features: bool = False,
     static_feature_keys: list[str] = None,
+    use_sex_label: bool = False,
 ) -> torch.utils.data.DataLoader:
     """Main dataset builder and loader function"""
 
@@ -118,7 +119,18 @@ def build_webdataset_pipeline(
         feats = [json_dict[k] for k in static_feature_keys]
         return torch.tensor(feats, dtype=torch.float32)
 
-    if use_static_features:
+    if use_static_features and use_sex_label:
+        if static_feature_keys is None:
+            raise ValueError("static_feature_keys must be provided when use_static_features=True")
+        # Expecting samples to have: jpg, cls, sex, json
+        def extract_sex_label(sex):
+            return torch.tensor(sex, dtype=torch.float32)
+        dataset_decoded = (
+            dataset.decode("pil")
+            .to_tuple("jpg", "cls", "sex", "json")
+            .map_tuple(image_transform, _identity, extract_sex_label, extract_static_from_json)
+        )
+    elif use_static_features:
         if static_feature_keys is None:
             raise ValueError("static_feature_keys must be provided when use_static_features=True")
         # Expecting samples to have: jpg, cls, json
@@ -126,6 +138,14 @@ def build_webdataset_pipeline(
             dataset.decode("pil")
             .to_tuple("jpg", "cls", "json")
             .map_tuple(image_transform, _identity, extract_static_from_json)
+        )
+    elif use_sex_label:
+        def extract_sex_label(sex):
+            return torch.tensor(sex, dtype=torch.float32)
+        dataset_decoded = (
+            dataset.decode("pil")
+            .to_tuple("jpg", "cls", "sex")
+            .map_tuple(image_transform, _identity, extract_sex_label)
         )
     else:
         dataset_decoded = (

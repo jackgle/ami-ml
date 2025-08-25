@@ -119,19 +119,21 @@ def get_webdataset_length(sharedurl: str) -> int:
     return int(sum(counts))
 
 
-class ImageModelWithStaticFeatures(nn.Module):
-    """Image model with static features concatenated to the output of the backbone.
-    This model is designed to handle static categorical features by embedding them
-    and concatenating them to the image features before classification.
+
+class SpeciesTimmModel(nn.Module):
+    """
+    General model for species classification (multi-class) and optional binary sex prediction,
+    with optional static categorical features.
     """
     def __init__(
         self,
         model_type: str,
         num_classes: int,
-        static_feat_num_categories: list[int],  # e.g., [num_regions, num_countries]
+        static_feat_num_categories: tp.Optional[list[int]] = None,
         static_embed_dim: int = 3,
         pretrained: bool = True,
         img_size: int = None,
+        predict_sex: bool = False,
     ):
         super().__init__()
         model_args = {"pretrained": pretrained, "num_classes": 0}
@@ -140,21 +142,36 @@ class ImageModelWithStaticFeatures(nn.Module):
         self.backbone = timm.create_model(model_type, **model_args)
         backbone_out_dim = self.backbone.num_features
 
-        # One embedding per categorical feature
-        self.embeddings = nn.ModuleList([
-            nn.Embedding(num_cat, static_embed_dim) for num_cat in static_feat_num_categories
-        ])
-        self.classifier = nn.Linear(backbone_out_dim + static_embed_dim * len(static_feat_num_categories), num_classes)
+        self.use_static = static_feat_num_categories is not None and len(static_feat_num_categories) > 0
+        if self.use_static:
+            self.embeddings = nn.ModuleList([
+                nn.Embedding(num_cat, static_embed_dim) for num_cat in static_feat_num_categories
+            ])
+            feat_dim = backbone_out_dim + static_embed_dim * len(static_feat_num_categories)
+        else:
+            feat_dim = backbone_out_dim
 
-    def forward(self, x_img, x_static_cat):
+        self.classifier = nn.Linear(feat_dim, num_classes)
+        self.predict_sex = predict_sex
+        if predict_sex:
+            self.sex_classifier = nn.Linear(feat_dim, 1)
+
+    def forward(self, x_img, x_static_cat=None):
         img_feat = self.backbone(x_img)
-        # x_static_cat: shape (batch_size, num_static_features)
-        static_embeds = [
-            emb(x_static_cat[:, i].long()) for i, emb in enumerate(self.embeddings)
-        ]
-        static_feat = torch.cat(static_embeds, dim=1)
-        x = torch.cat([img_feat, static_feat], dim=1)
-        return self.classifier(x)
+        if self.use_static and x_static_cat is not None:
+            static_embeds = [
+                emb(x_static_cat[:, i].long()) for i, emb in enumerate(self.embeddings)
+            ]
+            static_feat = torch.cat(static_embeds, dim=1)
+            x = torch.cat([img_feat, static_feat], dim=1)
+        else:
+            x = img_feat
+        out_class = self.classifier(x)
+        if self.predict_sex:
+            out_sex = self.sex_classifier(x)
+            return out_class, out_sex.squeeze(-1)
+        else:
+            return out_class
 
 
 def build_model(
@@ -178,13 +195,14 @@ def build_model(
         img_size = 128 if model_type == VIT_B16_128 else None
         if model_type == VIT_B16_128:
             model_type = "vit_base_patch16_224_in21k"
-        model = ImageModelWithStaticFeatures(
+        model = SpeciesTimmModel(
             model_type=model_type,
             num_classes=num_classes,
             static_feat_num_categories=static_feat_num_categories,
             static_embed_dim=static_embed_dim,
             pretrained=pretrained,
             img_size=img_size,
+            predict_sex=True,  # Set to True if you want to predict sex
         )
     else:
         model_arguments = {"pretrained": pretrained, "num_classes": num_classes}

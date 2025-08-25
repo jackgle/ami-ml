@@ -164,6 +164,10 @@ def _create_samples(
             "cls": categories_map[str(row[label_column])],
         }
 
+        # Add sex label if present
+        if "sex" in row:
+            sample["sex"] = row["sex"]
+
         if columns_to_json is not None:
             json_data = _prepare_json_data(row, columns_to_json)
             sample["json"] = json_data
