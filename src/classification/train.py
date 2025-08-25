@@ -554,19 +554,25 @@ def train_model(
                 lowest_val_loss = val_metrics["val_loss"]
                 early_stopping_count = 0
 
-            print(
-                f"[Stage1 head-only] Epoch [{epoch:02d}/{stage1_epochs}]: "
-                f"Train Loss: {train_metrics['train_loss']:.4f}, "
-                f"Val Loss: {val_metrics['val_loss']:.4f}, "
-                f"Train Acc: {train_metrics['train_accuracy']*100:.2f}%, "
-                f"Val Acc: {val_metrics['val_accuracy']*100:.2f}%, "
-                f"LR: {optimizer.param_groups[0]['lr']:.6f}",
-                flush=True,
-            )
 
-            if wandb_entity or wandb_project:
-                wandb.log(
-                    {
+                sex_prediction = hasattr(model, 'predict_sex') and getattr(model, 'predict_sex', False)
+                print_str = (
+                    f"[Stage1 head-only] Epoch [{epoch:02d}/{stage1_epochs}]: "
+                    f"Train Loss: {train_metrics['train_loss']:.4f}, "
+                    f"Val Loss: {val_metrics['val_loss']:.4f}, "
+                    f"Train Acc: {train_metrics['train_accuracy']*100:.2f}%, "
+                    f"Val Acc: {val_metrics['val_accuracy']*100:.2f}%, "
+                    f"LR: {optimizer.param_groups[0]['lr']:.6f}"
+                )
+                if sex_prediction:
+                    print_str += (
+                        f", Train Sex Acc: {train_metrics['sex_accuracy']*100:.2f}%, "
+                        f"Val Sex Acc: {val_metrics['val_sex_accuracy']*100:.2f}%"
+                    )
+                print(print_str, flush=True)
+
+                if wandb_entity or wandb_project:
+                    log_dict = {
                         "stage": 1,
                         "epoch": epoch,
                         "time_per_epoch_mins": (time.time() - epoch_start_time) / 60,
@@ -575,7 +581,10 @@ def train_model(
                         "train_accuracy": train_metrics["train_accuracy"],
                         "val_accuracy": val_metrics["val_accuracy"],
                     }
-                )
+                    if sex_prediction:
+                        log_dict["train_sex_accuracy"] = train_metrics["sex_accuracy"]
+                        log_dict["val_sex_accuracy"] = val_metrics["val_sex_accuracy"]
+                    wandb.log(log_dict)
 
             if early_stopping_count >= early_stopping:
                 print(
@@ -637,20 +646,26 @@ def train_model(
                 lowest_val_loss = val_metrics["val_loss"]
                 early_stopping_count = 0
 
-            print(
-                f"[Stage2 unfreeze-all] Epoch [{global_epoch:02d}/{total_epochs}]: "
-                f"Train Loss: {train_metrics['train_loss']:.4f}, "
-                f"Val Loss: {val_metrics['val_loss']:.4f}, "
-                f"Train Acc: {train_metrics['train_accuracy']*100:.2f}%, "
-                f"Val Acc: {val_metrics['val_accuracy']*100:.2f}%, "
-                f"Head LR: {optimizer.param_groups[0]['lr']:.6f}, "
-                f"Backbone LR: {optimizer.param_groups[1]['lr']:.6f}",
-                flush=True,
-            )
 
-            if wandb_entity or wandb_project:
-                wandb.log(
-                    {
+                sex_prediction = hasattr(model, 'predict_sex') and getattr(model, 'predict_sex', False)
+                print_str = (
+                    f"[Stage2 unfreeze-all] Epoch [{global_epoch:02d}/{total_epochs}]: "
+                    f"Train Loss: {train_metrics['train_loss']:.4f}, "
+                    f"Val Loss: {val_metrics['val_loss']:.4f}, "
+                    f"Train Acc: {train_metrics['train_accuracy']*100:.2f}%, "
+                    f"Val Acc: {val_metrics['val_accuracy']*100:.2f}%, "
+                    f"Head LR: {optimizer.param_groups[0]['lr']:.6f}, "
+                    f"Backbone LR: {optimizer.param_groups[1]['lr']:.6f}"
+                )
+                if sex_prediction:
+                    print_str += (
+                        f", Train Sex Acc: {train_metrics['sex_accuracy']*100:.2f}%, "
+                        f"Val Sex Acc: {val_metrics['val_sex_accuracy']*100:.2f}%"
+                    )
+                print(print_str, flush=True)
+
+                if wandb_entity or wandb_project:
+                    log_dict = {
                         "stage": 2,
                         "epoch": global_epoch,
                         "time_per_epoch_mins": (time.time() - epoch_start_time) / 60,
@@ -661,7 +676,10 @@ def train_model(
                         "head_lr": optimizer.param_groups[0]["lr"],
                         "backbone_lr": optimizer.param_groups[1]["lr"],
                     }
-                )
+                    if sex_prediction:
+                        log_dict["train_sex_accuracy"] = train_metrics["sex_accuracy"]
+                        log_dict["val_sex_accuracy"] = val_metrics["val_sex_accuracy"]
+                    wandb.log(log_dict)
 
             if early_stopping_count >= early_stopping:
                 print(
