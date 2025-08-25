@@ -269,6 +269,7 @@ def train_model(
     static_features: bool,
     static_feature_keys: Optional[list[str]],
     static_feat_num_categories: tp.Optional[list[int]],
+    predict_sex: bool,
     total_epochs: int,
     warmup_epochs: int,
     early_stopping: int,
@@ -317,7 +318,7 @@ def train_model(
         existing_weights,
         static_features=static_features,
         static_feat_num_categories=static_feat_num_categories,
-        predict_sex=True,  # Set to True to enable sex prediction
+        predict_sex=predict_sex,  # Set to True to enable sex prediction
     )
 
     # setup dataloaders
@@ -330,6 +331,7 @@ def train_model(
         is_training=True,
         use_static_features=static_features,
         static_feature_keys=static_feature_keys,
+        use_sex_label=predict_sex
     )
     val_dataloader = build_webdataset_pipeline(
         val_webdataset,
@@ -338,6 +340,7 @@ def train_model(
         preprocess_mode,
         use_static_features=static_features,
         static_feature_keys=static_feature_keys,
+        use_sex_label=predict_sex
     )
     test_dataloader = build_webdataset_pipeline(
         test_webdataset,
@@ -346,6 +349,7 @@ def train_model(
         preprocess_mode,
         use_static_features=static_features,
         static_feature_keys=static_feature_keys,
+        use_sex_label=predict_sex
     )
 
     # compute steps per epoch once for schedulers
