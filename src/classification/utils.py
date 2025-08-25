@@ -184,6 +184,7 @@ def build_model(
     static_features: bool = False,
     static_feat_num_categories: tp.Optional[list[int]] = None,
     static_embed_dim: int = 3,
+    predict_sex: bool = False
 ) -> torch.nn.Module:
     """Model builder"""
 
@@ -202,7 +203,7 @@ def build_model(
             static_embed_dim=static_embed_dim,
             pretrained=pretrained,
             img_size=img_size,
-            predict_sex=True,  # Set to True if you want to predict sex
+            predict_sex=predict_sex,  # Set to True if you want to predict sex
         )
     else:
         model_arguments = {"pretrained": pretrained, "num_classes": num_classes}
