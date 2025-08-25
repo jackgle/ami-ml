@@ -141,6 +141,8 @@ def build_webdataset_pipeline(
         )
     elif use_sex_label:
         def extract_sex_label(sex):
+            if isinstance(sex, bytes):
+                sex = int(sex.decode("utf-8"))
             return torch.tensor(sex, dtype=torch.float32)
         dataset_decoded = (
             dataset.decode("pil")
