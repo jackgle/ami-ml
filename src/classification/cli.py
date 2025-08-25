@@ -222,6 +222,12 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     help="Label smoothing for model regularization. No smoothing if 0.0",
 )
 @click.option(
+    "--dropout_rate",
+    type=float,
+    default=0.2,
+    help="Dropout rate for regularization. No dropout if 0.0",
+)
+@click.option(
     "--mixed_resolution_data_aug",
     type=bool,
     default=True,
@@ -315,6 +321,7 @@ def train_model_command(
     loss_function_type: str,
     weight_on_order_loss: float,
     label_smoothing: float,
+    dropout_rate: float,
     mixed_resolution_data_aug: bool,
     model_save_directory: str,
     wandb_entity: Optional[str],
@@ -355,6 +362,7 @@ def train_model_command(
         loss_function_type=loss_function_type,
         weight_on_order_loss=weight_on_order_loss,
         label_smoothing=label_smoothing,
+        dropout_rate=dropout_rate,
         mixed_resolution_data_aug=mixed_resolution_data_aug,
         model_save_directory=model_save_directory,
         wandb_entity=wandb_entity,
