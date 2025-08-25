@@ -69,11 +69,6 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
 # Train Model Command
 #
 @click.command(
-@click.option(
-    "--predict_sex/--no-predict_sex",
-    default=False,
-    help="Enable binary sex prediction head in the model",
-)
     name=COMMANDS[TRAIN_CMD],
     help=COMMANDS_HELP[TRAIN_CMD],
     context_settings={"show_default": True},
@@ -121,6 +116,11 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     multiple=True,
     default=None,
     help="Number of categories for each static feature (e.g., [num_regions, num_countries])",
+)
+@click.option(
+    "--predict_sex/--no-predict_sex",
+    default=False,
+    help="Enable binary sex prediction head in the model",
 )
 @click.option(
     "--total_epochs",
