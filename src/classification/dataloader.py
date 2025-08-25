@@ -126,10 +126,10 @@ def build_webdataset_pipeline(
     if use_static_features and use_sex_label:
         if static_feature_keys is None:
             raise ValueError("static_feature_keys must be provided when use_static_features=True")
-        # Expecting samples to have: jpg, cls, sex, json
+        # Expecting samples to have: jpg, cls, sex.cls, json
         dataset_decoded = (
             dataset.decode("pil")
-            .to_tuple("jpg", "cls", "sex", "json")
+            .to_tuple("jpg", "cls", "sex.cls", "json")
             .map_tuple(image_transform, _identity, _extract_sex_label, extract_static_from_json)
         )
     elif use_static_features:
@@ -144,7 +144,7 @@ def build_webdataset_pipeline(
     elif use_sex_label:
         dataset_decoded = (
             dataset.decode("pil")
-            .to_tuple("jpg", "cls", "sex")
+            .to_tuple("jpg", "cls", "sex.cls")
             .map_tuple(image_transform, _identity, _extract_sex_label)
         )
     else:
