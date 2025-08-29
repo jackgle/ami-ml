@@ -261,7 +261,7 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     help="User-defined training run name",
 )
 @click.option(
-    "--save_model_artifact/--no-save_model_artifact",
+    "--save_model_artifact/--no_save_model_artifact",
     default=True,
     help="Log model artifact to wandb.",
 )
