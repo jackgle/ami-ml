@@ -292,6 +292,7 @@ def train_model(
     wandb_entity: Optional[str],
     wandb_project: Optional[str],
     wandb_run_name: Optional[str],
+    save_model_artifact: bool = True,
     # new knobs for two-stage
     train_strategy: str,  # "e2e" or "head_all"
     stage1_epochs: int,
@@ -705,5 +706,6 @@ def train_model(
         if 'test_sex_accuracy' in test_metrics:
             log_dict["test_sex_accuracy"] = test_metrics["test_sex_accuracy"]
         wandb.log(log_dict)
-        wandb.log_artifact(f"{model_save_path}_checkpoint.pt", type="model", name=wandb_run_name)
+        if save_model_artifact:
+            wandb.log_artifact(f"{model_save_path}_checkpoint.pt", type="model", name=wandb_run_name)
         wandb.finish()

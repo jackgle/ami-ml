@@ -123,6 +123,11 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     help="Enable binary sex prediction head in the model",
 )
 @click.option(
+    "--save-model-artifact/--no-save-model-artifact",
+    default=True,
+    help="Log model artifact to wandb.",
+)
+@click.option(
     "--total_epochs",
     type=int,
     default=30,
@@ -335,6 +340,7 @@ def train_model_command(
     reset_opt_on_unfreeze: bool,
     head_param_patterns: tuple[str, ...],
     predict_sex: bool,
+    save_model_artifact: bool,
 ):
     from src.classification.train import train_model
 
@@ -376,6 +382,7 @@ def train_model_command(
         reset_opt_on_unfreeze=reset_opt_on_unfreeze,
         head_param_patterns=list(head_param_patterns),
         predict_sex=predict_sex,
+        save_model_artifact=save_artifact,
     )
 
 
