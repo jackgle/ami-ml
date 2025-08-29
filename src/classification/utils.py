@@ -131,7 +131,6 @@ class SpeciesTimmModel(nn.Module):
         num_classes: int,
         static_feat_num_categories: tp.Optional[list[int]] = None,
         static_embed_dim: int = 3,
-        dropout_rate: float = 0.2,
         pretrained: bool = True,
         img_size: int = None,
         predict_sex: bool = False,
@@ -152,7 +151,7 @@ class SpeciesTimmModel(nn.Module):
         else:
             feat_dim = backbone_out_dim
 
-        self.dropout = nn.Dropout(p=dropout_rate)
+        self.dropout = nn.Dropout(p=0.0)
         self.classifier = nn.Linear(feat_dim, num_classes)
         self.predict_sex = predict_sex
         if predict_sex:
@@ -188,7 +187,6 @@ def build_model(
     static_feat_num_categories: tp.Optional[list[int]] = None,
     static_embed_dim: int = 3,
     predict_sex: bool = False,
-    dropout_rate: float = 0.2,
 ) -> torch.nn.Module:
     """Model builder"""
 
@@ -205,7 +203,6 @@ def build_model(
             num_classes=num_classes,
             static_feat_num_categories=static_feat_num_categories,
             static_embed_dim=static_embed_dim,
-            dropout_rate=dropout_rate,
             pretrained=pretrained,
             img_size=img_size,
             predict_sex=predict_sex,  # Set to True if you want to predict sex

@@ -286,7 +286,6 @@ def train_model(
     loss_function_type: str,
     weight_on_order_loss: float,
     label_smoothing: float,
-    dropout_rate: float,
     mixed_resolution_data_aug: bool,
     model_save_directory: str,
     wandb_entity: Optional[str],
@@ -320,7 +319,6 @@ def train_model(
         existing_weights,
         static_features=static_features,
         static_feat_num_categories=static_feat_num_categories,
-        dropout_rate=dropout_rate,
         predict_sex=predict_sex,  # Set to True to enable sex prediction
     )
 
