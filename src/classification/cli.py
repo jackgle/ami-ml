@@ -224,7 +224,7 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
 @click.option(
     "--dropout_rate",
     type=float,
-    default=0.2,
+    default=0.0,
     help="Dropout rate for regularization. No dropout if 0.0",
 )
 @click.option(
