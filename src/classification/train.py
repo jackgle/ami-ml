@@ -292,7 +292,7 @@ def train_model(
     wandb_entity: Optional[str],
     wandb_project: Optional[str],
     wandb_run_name: Optional[str],
-    save_model_artifact: bool = True,
+    save_model_artifact: bool,
     # new knobs for two-stage
     train_strategy: str,  # "e2e" or "head_all"
     stage1_epochs: int,

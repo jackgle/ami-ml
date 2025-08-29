@@ -123,11 +123,6 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     help="Enable binary sex prediction head in the model",
 )
 @click.option(
-    "--save-model-artifact/--no-save-model-artifact",
-    default=True,
-    help="Log model artifact to wandb.",
-)
-@click.option(
     "--total_epochs",
     type=int,
     default=30,
@@ -265,6 +260,11 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     default=None,
     help="User-defined training run name",
 )
+@click.option(
+    "--save_model_artifact/--no-save_model_artifact",
+    default=True,
+    help="Log model artifact to wandb.",
+)
 # new: two-stage training knobs (restricted to e2e or head_all)
 @click.option(
     "--train_strategy",
@@ -332,6 +332,7 @@ def train_model_command(
     wandb_entity: Optional[str],
     wandb_project: Optional[str],
     wandb_run_name: Optional[str],
+    save_model_artifact: bool,
     # new args
     train_strategy: str,
     stage1_epochs: int,
@@ -340,7 +341,6 @@ def train_model_command(
     reset_opt_on_unfreeze: bool,
     head_param_patterns: tuple[str, ...],
     predict_sex: bool,
-    save_model_artifact: bool,
 ):
     from src.classification.train import train_model
 
@@ -374,6 +374,7 @@ def train_model_command(
         wandb_entity=wandb_entity,
         wandb_project=wandb_project,
         wandb_run_name=wandb_run_name,
+        save_model_artifact=save_model_artifact,
         # new args forwarded to trainer
         train_strategy=train_strategy,
         stage1_epochs=stage1_epochs,
@@ -382,7 +383,6 @@ def train_model_command(
         reset_opt_on_unfreeze=reset_opt_on_unfreeze,
         head_param_patterns=list(head_param_patterns),
         predict_sex=predict_sex,
-        save_model_artifact=save_artifact,
     )
 
 
