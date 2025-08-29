@@ -187,7 +187,8 @@ def build_model(
     static_features: bool = False,
     static_feat_num_categories: tp.Optional[list[int]] = None,
     static_embed_dim: int = 3,
-    predict_sex: bool = False
+    predict_sex: bool = False,
+    dropout_rate: float = 0.2,
 ) -> torch.nn.Module:
     """Model builder"""
 
@@ -204,6 +205,7 @@ def build_model(
             num_classes=num_classes,
             static_feat_num_categories=static_feat_num_categories,
             static_embed_dim=static_embed_dim,
+            dropout_rate=dropout_rate,
             pretrained=pretrained,
             img_size=img_size,
             predict_sex=predict_sex,  # Set to True if you want to predict sex
