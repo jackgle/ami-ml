@@ -81,7 +81,7 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
 )
 @click.option(
     "--model_type",
-    type=str),
+    type=str,
     default=RESNET50,
     help="Model architecture",
 )
