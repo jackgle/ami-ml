@@ -160,6 +160,12 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     help="Image input size for training and inference",
 )
 @click.option(
+    "--pass_image_input_size",
+    type=bool,
+    default=False,
+    help="Whether to pass the image_input_size to the model",
+)
+@click.option(
     "--batch_size",
     type=int,
     default=64,
@@ -260,6 +266,7 @@ def train_model_command(
     val_webdataset: str,
     test_webdataset: str,
     image_input_size: int,
+    pass_image_input_size: bool,
     batch_size: int,
     preprocess_mode: str,
     optimizer_type: str,
@@ -292,6 +299,7 @@ def train_model_command(
         val_webdataset=val_webdataset,
         test_webdataset=test_webdataset,
         image_input_size=image_input_size,
+        pass_image_input_size=pass_image_input_size,
         batch_size=batch_size,
         preprocess_mode=preprocess_mode,
         optimizer_type=optimizer_type,

@@ -161,6 +161,7 @@ def train_model(
     val_webdataset: str,
     test_webdataset: str,
     image_input_size: int,
+    pass_image_input_size: bool,
     batch_size: int,
     preprocess_mode: str,
     optimizer_type: str,
@@ -184,6 +185,9 @@ def train_model(
     # Model initialization
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"The available device is {device}.")
+    model_input_size = image_input_size
+    if not pass_image_input_size:
+        model_input_size = None
     model = build_model(
         device,
         model_type,
@@ -191,7 +195,7 @@ def train_model(
         existing_weights,
         static_features=static_features,
         static_feat_num_categories=static_feat_num_categories,
-        img_size=image_input_size
+        img_size=model_input_size
     )
 
     # Setup dataloaders
