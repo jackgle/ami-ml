@@ -191,6 +191,7 @@ def train_model(
         existing_weights,
         static_features=static_features,
         static_feat_num_categories=static_feat_num_categories,
+        img_size=image_input_size
     )
 
     # Setup dataloaders

@@ -167,6 +167,7 @@ def build_model(
     static_features: bool = False,
     static_feat_num_categories: tp.Optional[list[int]] = None,
     static_embed_dim: int = 3,
+    img_size: int = None
 ) -> torch.nn.Module:
     """Model builder"""
 
