@@ -81,7 +81,7 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
 )
 @click.option(
     "--model_type",
-    type=click.Choice(tp.get_args(SupportedModels)),
+    type=str),
     default=RESNET50,
     help="Model architecture",
 )
