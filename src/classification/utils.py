@@ -171,10 +171,6 @@ def build_model(
     """Model builder"""
 
     if static_features:
-        # For ViT special case
-        img_size = 128 if model_type == VIT_B16_128 else None
-        if model_type == VIT_B16_128:
-            model_type = "vit_base_patch16_224_in21k"
         model = ImageModelWithStaticFeatures(
             model_type=model_type,
             num_classes=num_classes,
@@ -185,9 +181,8 @@ def build_model(
         )
     else:
         model_arguments = {"pretrained": pretrained, "num_classes": num_classes}
-        if model_type == VIT_B16_128:
-            model_type = "vit_base_patch16_224_in21k"
-            model_arguments["img_size"] = 128
+        if img_size is not None:
+            model_arguments["img_size"] = img_size
         model = timm.create_model(model_type, **model_arguments)
 
     # If available, load existing weights
