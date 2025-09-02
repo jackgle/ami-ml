@@ -170,9 +170,6 @@ def build_model(
 ) -> torch.nn.Module:
     """Model builder"""
 
-    if model_type not in AVAILABLE_MODELS:
-        raise RuntimeError(f"Model {model_type} not implemented")
-
     if static_features:
         # For ViT special case
         img_size = 128 if model_type == VIT_B16_128 else None
