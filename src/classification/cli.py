@@ -118,6 +118,12 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     help="Number of categories for each static feature (e.g., [num_regions, num_countries])",
 )
 @click.option(
+    "--dropout_rate",
+    type=float,
+    default=0.0,
+    help="Dropout rate for regularization (only applied when using static features)",
+)
+@click.option(
     "--total_epochs",
     type=int,
     default=30,
@@ -253,6 +259,7 @@ def train_model_command(
     static_features: bool,
     static_feature_keys: Optional[list[str]],
     static_feat_num_categories: tp.Optional[list[int]],
+    dropout_rate: float,
     total_epochs: int,
     warmup_epochs: int,
     early_stopping: int,
@@ -285,6 +292,7 @@ def train_model_command(
         static_features=static_features,
         static_feature_keys=static_feature_keys,
         static_feat_num_categories=static_feat_num_categories,
+        dropout_rate=dropout_rate,
         total_epochs=total_epochs,
         warmup_epochs=warmup_epochs,
         early_stopping=early_stopping,

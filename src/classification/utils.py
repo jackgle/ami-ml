@@ -132,6 +132,7 @@ class ImageModelWithStaticFeatures(nn.Module):
         static_embed_dim: int = 3,
         pretrained: bool = True,
         img_size: int = None,
+        dropout_rate: float = 0.0,
     ):
         super().__init__()
         model_args = {"pretrained": pretrained, "num_classes": 0}
@@ -144,6 +145,7 @@ class ImageModelWithStaticFeatures(nn.Module):
         self.embeddings = nn.ModuleList([
             nn.Embedding(num_cat, static_embed_dim) for num_cat in static_feat_num_categories
         ])
+        self.dropout = nn.Dropout(dropout_rate) if dropout_rate > 0 else nn.Identity()
         self.classifier = nn.Linear(backbone_out_dim + static_embed_dim * len(static_feat_num_categories), num_classes)
 
     def forward(self, x_img, x_static_cat):
@@ -154,6 +156,7 @@ class ImageModelWithStaticFeatures(nn.Module):
         ]
         static_feat = torch.cat(static_embeds, dim=1)
         x = torch.cat([img_feat, static_feat], dim=1)
+        x = self.dropout(x)
         return self.classifier(x)
 
 
@@ -167,6 +170,7 @@ def build_model(
     static_features: bool = False,
     static_feat_num_categories: tp.Optional[list[int]] = None,
     static_embed_dim: int = 3,
+    dropout_rate: float = 0.0,
 ) -> torch.nn.Module:
     """Model builder"""
 
@@ -185,6 +189,7 @@ def build_model(
             static_embed_dim=static_embed_dim,
             pretrained=pretrained,
             img_size=img_size,
+            dropout_rate=dropout_rate,
         )
     else:
         model_arguments = {"pretrained": pretrained, "num_classes": num_classes}

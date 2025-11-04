@@ -154,6 +154,7 @@ def train_model(
     static_features: bool,
     static_feature_keys: Optional[list[str]],
     static_feat_num_categories: tp.Optional[list[int]],
+    dropout_rate: float,
     total_epochs: int,
     warmup_epochs: int,
     early_stopping: int,
@@ -191,6 +192,7 @@ def train_model(
         existing_weights,
         static_features=static_features,
         static_feat_num_categories=static_feat_num_categories,
+        dropout_rate=dropout_rate,
     )
 
     # Setup dataloaders
