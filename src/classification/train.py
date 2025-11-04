@@ -14,6 +14,7 @@ from typing import Optional
 
 import torch
 from timm.utils import AverageMeter
+from tqdm import tqdm
 
 import wandb
 from src.classification.dataloader import build_webdataset_pipeline
@@ -63,6 +64,7 @@ def _train_model_for_one_epoch(
     train_dataloader: torch.utils.data.DataLoader,
     learning_rate_scheduler: Optional[tp.Any],
     total_train_steps: int,
+    verbose: bool = False,
 ) -> tuple[dict, int]:  # TODO: First element will eventually turn into a dict
     """Training model for one epoch"""
 
@@ -71,7 +73,8 @@ def _train_model_for_one_epoch(
     running_accuracy = AverageMeter()
 
     model.train()
-    for batch_data in train_dataloader:
+    dataloader_iter = tqdm(train_dataloader, desc="Training", disable=not verbose)
+    for batch_data in dataloader_iter:
         images, labels, *rest = batch_data
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
@@ -100,6 +103,13 @@ def _train_model_for_one_epoch(
             total_train_steps_current += 1
             learning_rate_scheduler.step_update(num_updates=total_train_steps_current)
 
+        # Update progress bar
+        if verbose:
+            dataloader_iter.set_postfix({
+                "loss": f"{running_loss.avg:.4f}",
+                "acc": f"{running_accuracy.avg:.4f}"
+            })
+
     metrics = {"train_loss": running_loss.avg, "train_accuracy": running_accuracy.avg}
 
     return metrics, total_train_steps_current
@@ -111,6 +121,7 @@ def _evaluate_model(
     loss_function: torch.nn.Module,
     dataloader: torch.utils.data.DataLoader,
     set_type: str,
+    verbose: bool = False,
 ) -> dict:
     """Evaluate model either for validation or test set"""
 
@@ -118,7 +129,8 @@ def _evaluate_model(
     running_accuracy = AverageMeter()
 
     model.eval()
-    for batch_data in dataloader:
+    dataloader_iter = tqdm(dataloader, desc=f"Evaluating {set_type}", disable=not verbose)
+    for batch_data in dataloader_iter:
         images, labels, *rest = batch_data
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
@@ -138,6 +150,13 @@ def _evaluate_model(
         _, predicted = torch.max(outputs, 1)
         running_accuracy.update((predicted == labels).sum().item() / labels.size(0))
 
+        # Update progress bar
+        if verbose:
+            dataloader_iter.set_postfix({
+                "loss": f"{running_loss.avg:.4f}",
+                "acc": f"{running_accuracy.avg:.4f}"
+            })
+
     metrics = {
         f"{set_type}_loss": running_loss.avg,
         f"{set_type}_accuracy": running_accuracy.avg,
@@ -155,6 +174,7 @@ def train_model(
     static_feature_keys: Optional[list[str]],
     static_feat_num_categories: tp.Optional[list[int]],
     dropout_rate: float,
+    verbose: bool,
     total_epochs: int,
     warmup_epochs: int,
     early_stopping: int,
@@ -185,6 +205,8 @@ def train_model(
     # Model initialization
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"The available device is {device}.")
+    if verbose:
+        print(f"Verbose mode enabled - showing progress bars")
     model = build_model(
         device,
         model_type,
@@ -226,7 +248,11 @@ def train_model(
     # Other training ingredients
     optimizer = get_optimizer(optimizer_type, model, learning_rate, weight_decay)
     if learning_rate_scheduler:
+        if verbose:
+            print("Computing training dataset length from tar files...")
         train_data_length = get_webdataset_length(train_webdataset)
+        if verbose:
+            print(f"Found {train_data_length} training samples")
         steps_per_epoch = int((train_data_length - 1) / batch_size) + 1
         learning_rate_scheduler = get_learning_rate_scheduler(
             optimizer,
@@ -245,6 +271,8 @@ def train_model(
 
     # Start W&B logging
     if wandb_entity or wandb_project:
+        if verbose:
+            print("Initializing Weights & Biases...")
         training_configuration = {
             "random_seed": random_seed,
             "model_type": model_type,
@@ -273,12 +301,20 @@ def train_model(
             name=wandb_run_name,
             config=training_configuration,
         )
+        if verbose:
+            print("Weights & Biases initialized successfully!")
 
     # Model training
+    if verbose:
+        print(f"\nStarting training for {total_epochs} epochs...")
+        print("=" * 80)
     total_train_steps = 0  # total training batches processed
     early_stopping_count = 0
     lowest_val_loss = 1e8
     for epoch in range(1, total_epochs + 1):
+        if verbose:
+            print(f"\nEpoch {epoch}/{total_epochs}")
+            print("-" * 80)
         epoch_start_time = time.time()
         train_metrics, total_train_steps_current = _train_model_for_one_epoch(
             model,
@@ -288,11 +324,12 @@ def train_model(
             train_dataloader,
             learning_rate_scheduler,
             total_train_steps,
+            verbose=verbose,
         )
         total_train_steps = total_train_steps_current
         early_stopping_count += 1
         val_metrics = _evaluate_model(
-            model, device, loss_function, val_dataloader, "val"
+            model, device, loss_function, val_dataloader, "val", verbose=verbose
         )
 
         if val_metrics["val_loss"] < lowest_val_loss:
@@ -338,8 +375,11 @@ def train_model(
             break
 
     # Evaluate the model on test data
+    if verbose:
+        print("\n" + "=" * 80)
+        print("Evaluating on test set...")
     test_metrics = _evaluate_model(
-        model, device, loss_function, test_dataloader, "test"
+        model, device, loss_function, test_dataloader, "test", verbose=verbose
     )
     print(f"The test accuracy is {test_metrics['test_accuracy']*100:.2f}%.", flush=True)
 

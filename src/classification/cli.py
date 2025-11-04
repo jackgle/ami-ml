@@ -124,6 +124,12 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     help="Dropout rate for regularization",
 )
 @click.option(
+    "--verbose",
+    is_flag=True,
+    default=False,
+    help="Enable verbose logging with progress bars",
+)
+@click.option(
     "--total_epochs",
     type=int,
     default=30,
@@ -260,6 +266,7 @@ def train_model_command(
     static_feature_keys: Optional[list[str]],
     static_feat_num_categories: tp.Optional[list[int]],
     dropout_rate: float,
+    verbose: bool,
     total_epochs: int,
     warmup_epochs: int,
     early_stopping: int,
@@ -293,6 +300,7 @@ def train_model_command(
         static_feature_keys=static_feature_keys,
         static_feat_num_categories=static_feat_num_categories,
         dropout_rate=dropout_rate,
+        verbose=verbose,
         total_epochs=total_epochs,
         warmup_epochs=warmup_epochs,
         early_stopping=early_stopping,
