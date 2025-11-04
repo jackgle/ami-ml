@@ -196,6 +196,8 @@ def build_model(
         if model_type == VIT_B16_128:
             model_type = "vit_base_patch16_224_in21k"
             model_arguments["img_size"] = 128
+        if dropout_rate > 0:
+            model_arguments["drop_rate"] = dropout_rate
         model = timm.create_model(model_type, **model_arguments)
 
     # If available, load existing weights

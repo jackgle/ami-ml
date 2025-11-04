@@ -121,7 +121,7 @@ COMMANDS_HELP = {TRAIN_CMD: "Train a classification model"}
     "--dropout_rate",
     type=float,
     default=0.0,
-    help="Dropout rate for regularization (only applied when using static features)",
+    help="Dropout rate for regularization",
 )
 @click.option(
     "--total_epochs",
