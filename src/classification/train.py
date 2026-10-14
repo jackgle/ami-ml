@@ -6,6 +6,7 @@
 """
 
 import pathlib
+import subprocess
 import time
 import typing as tp
 from datetime import datetime
@@ -26,6 +27,38 @@ from src.classification.utils import (
     get_webdataset_length,
     set_random_seeds,
 )
+
+
+def _get_git_info() -> dict:
+    """Get the ami-ml origin, commit and a patch of any uncommitted changes"""
+
+    # Run from the repository root so untracked files anywhere are found
+    repo_dir = Path(__file__).resolve().parents[2]
+
+    def _git(*args: str, check: bool = True) -> str:
+        # Ignore file-mode changes, which some filesystems introduce
+        return subprocess.run(
+            ["git", "-c", "core.fileMode=false", *args],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=check,
+        ).stdout
+
+    try:
+        diff = _git("diff", "HEAD")
+        untracked_files = _git("ls-files", "--others", "--exclude-standard")
+        for untracked in untracked_files.splitlines():
+            # Exits with 1 when the files differ, so don't check
+            diff += _git("diff", "--no-index", "/dev/null", untracked, check=False)
+        return {
+            "git_origin": _git("remote", "get-url", "origin").strip(),
+            "git_commit": _git("rev-parse", "HEAD").strip(),
+            "git_diff": diff,
+        }
+    except (OSError, subprocess.CalledProcessError):
+        print("Warning: could not determine the ami-ml git commit.")
+        return {"git_origin": None, "git_commit": None, "git_diff": ""}
 
 
 def _save_model_checkpoint(
@@ -291,6 +324,7 @@ def train_model(
     if wandb_entity or wandb_project:
         if verbose:
             print("Initializing Weights & Biases...")
+        git_info = _get_git_info()
         training_configuration = {
             "random_seed": random_seed,
             "model_type": model_type,
@@ -312,6 +346,14 @@ def train_model(
             "loss_function_type": loss_function_type,
             "label_smoothing": label_smoothing,
             "model_save_directory": model_save_directory,
+            "dropout_rate": dropout_rate,
+            "static_features": static_features,
+            "static_feature_keys": static_feature_keys,
+            "static_feat_num_categories": static_feat_num_categories,
+            "mixed_resolution_data_aug": mixed_resolution_data_aug,
+            "git_origin": git_info["git_origin"],
+            "git_commit": git_info["git_commit"],
+            "git_dirty": bool(git_info["git_diff"]),
         }
         wandb.init(
             entity=wandb_entity,
@@ -319,6 +361,10 @@ def train_model(
             name=wandb_run_name,
             config=training_configuration,
         )
+        if git_info["git_diff"]:
+            patch_path = Path(wandb.run.dir) / "ami-ml.patch"
+            patch_path.write_text(git_info["git_diff"])
+            wandb.save(str(patch_path), policy="now")
         if verbose:
             print("Weights & Biases initialized successfully!")
 
