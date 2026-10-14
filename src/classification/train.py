@@ -123,10 +123,16 @@ def _evaluate_model(
     set_type: str,
     verbose: bool = False,
 ) -> dict:
-    """Evaluate model either for validation or test set"""
+    """Evaluate model either for validation or test set
 
-    running_loss = AverageMeter()
+    Besides the per-sample loss and accuracy, reports class-balanced versions in
+    which every class present in the set contributes equally: the balanced loss is
+    the mean of per-class mean losses, and the balanced accuracy is the mean of
+    per-class recalls.
+    """
+
     running_accuracy = AverageMeter()
+    all_outputs, all_labels = [], []
 
     model.eval()
     dataloader_iter = tqdm(dataloader, desc=f"Evaluating {set_type}", disable=not verbose)
@@ -141,25 +147,37 @@ def _evaluate_model(
                 outputs = model(images, static_feats)
             else:
                 outputs = model(images)
-            loss = loss_function(outputs, labels)
 
-        # Calculate the average loss per sample
-        running_loss.update(loss.item())
-
-        # Calculate the batch accuracy and update to global accuracy
-        _, predicted = torch.max(outputs, 1)
-        running_accuracy.update((predicted == labels).sum().item() / labels.size(0))
+        all_outputs.append(outputs)
+        all_labels.append(labels)
 
         # Update progress bar
         if verbose:
-            dataloader_iter.set_postfix({
-                "loss": f"{running_loss.avg:.4f}",
-                "acc": f"{running_accuracy.avg:.4f}"
-            })
+            _, predicted = torch.max(outputs, 1)
+            running_accuracy.update(
+                (predicted == labels).sum().item() / labels.size(0), labels.size(0)
+            )
+            dataloader_iter.set_postfix({"acc": f"{running_accuracy.avg:.4f}"})
+
+    outputs = torch.cat(all_outputs)
+    labels = torch.cat(all_labels)
+    _, predicted = torch.max(outputs, 1)
+    correct = (predicted == labels).float()
+
+    # Per-class loss and recall over the classes present in this set
+    class_losses, class_recalls = [], []
+    with torch.no_grad():
+        for class_idx in torch.unique(labels):
+            mask = labels == class_idx
+            class_losses.append(loss_function(outputs[mask], labels[mask]).item())
+            class_recalls.append(correct[mask].mean().item())
+        loss = loss_function(outputs, labels).item()
 
     metrics = {
-        f"{set_type}_loss": running_loss.avg,
-        f"{set_type}_accuracy": running_accuracy.avg,
+        f"{set_type}_loss": loss,
+        f"{set_type}_accuracy": correct.mean().item(),
+        f"{set_type}_balanced_loss": sum(class_losses) / len(class_losses),
+        f"{set_type}_balanced_accuracy": sum(class_recalls) / len(class_recalls),
     }
 
     return metrics
@@ -332,7 +350,8 @@ def train_model(
             model, device, loss_function, val_dataloader, "val", verbose=verbose
         )
 
-        if val_metrics["val_loss"] < lowest_val_loss:
+        # Model selection uses the class-balanced validation loss
+        if val_metrics["val_balanced_loss"] < lowest_val_loss:
             _save_model_checkpoint(
                 model,
                 model_save_path,
@@ -340,17 +359,17 @@ def train_model(
                 learning_rate_scheduler,
                 epoch,
                 train_metrics["train_loss"],
-                val_metrics["val_loss"],
+                val_metrics["val_balanced_loss"],
             )
-            lowest_val_loss = val_metrics["val_loss"]
+            lowest_val_loss = val_metrics["val_balanced_loss"]
             early_stopping_count = 0
 
         print(
             f"Epoch [{epoch:02d}/{total_epochs}]: "
             f"Train Loss: {train_metrics['train_loss']:.4f}, "
-            f"Val Loss: {val_metrics['val_loss']:.4f}, "
+            f"Val Balanced Loss: {val_metrics['val_balanced_loss']:.4f}, "
             f"Train Accuracy: {train_metrics['train_accuracy']*100:.2f}%, "
-            f"Val Accuracy: {val_metrics['val_accuracy']*100:.2f}%, "
+            f"Val Balanced Accuracy: {val_metrics['val_balanced_accuracy']*100:.2f}%, "
             f"Learning rate: {optimizer.param_groups[0]['lr']:.6f}",
             flush=True,
         )
@@ -364,15 +383,31 @@ def train_model(
                     "val_loss": val_metrics["val_loss"],
                     "train_accuracy": train_metrics["train_accuracy"],
                     "val_accuracy": val_metrics["val_accuracy"],
+                    "val_balanced_loss": val_metrics["val_balanced_loss"],
+                    "val_balanced_accuracy": val_metrics["val_balanced_accuracy"],
                 }
             )
 
         if early_stopping_count >= early_stopping:
             print(
-                f"Early stopping at epoch {epoch} with lowest validation loss: {lowest_val_loss:.4f}.",
+                f"Early stopping at epoch {epoch} with lowest balanced validation loss: {lowest_val_loss:.4f}.",
                 flush=True,
             )
             break
+
+    # Restore the best (lowest balanced validation loss) weights before testing
+    best_checkpoint = torch.load(
+        f"{model_save_path}_checkpoint.pt", map_location=torch.device(device)
+    )
+    if torch.cuda.device_count() > 1:
+        model.module.load_state_dict(best_checkpoint["model_state_dict"])
+    else:
+        model.load_state_dict(best_checkpoint["model_state_dict"])
+    print(
+        f"Loaded best checkpoint from epoch {best_checkpoint['epoch']} "
+        f"(balanced val loss: {best_checkpoint['val_loss']:.4f}) for test evaluation.",
+        flush=True,
+    )
 
     # Evaluate the model on test data
     if verbose:
@@ -381,10 +416,14 @@ def train_model(
     test_metrics = _evaluate_model(
         model, device, loss_function, test_dataloader, "test", verbose=verbose
     )
-    print(f"The test accuracy is {test_metrics['test_accuracy']*100:.2f}%.", flush=True)
+    print(
+        f"The test balanced accuracy is {test_metrics['test_balanced_accuracy']*100:.2f}% "
+        f"(accuracy: {test_metrics['test_accuracy']*100:.2f}%).",
+        flush=True,
+    )
 
     if wandb_entity or wandb_project:
-        wandb.log({"test_accuracy": test_metrics["test_accuracy"]})
+        wandb.log(test_metrics)
         wandb.log_artifact(
             f"{model_save_path}_checkpoint.pt", type="model", name=wandb_run_name
         )

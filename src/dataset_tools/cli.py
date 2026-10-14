@@ -630,15 +630,15 @@ def clean_dataset_command(
     "--resample",
     type=bool,
     default=False,
-    help="Whether to resample the dataset splits",
+    help="Whether to resample the training split (val/test are never resampled)",
 )
 @click.option(
     "--resample-target-counts",
     type=str,
     default=None,
     help=(
-        "JSON string like '{\"train\": 100, \"val\": 30, \"test\": 30}' "
-        "specifying resample targets. If used in Python directly, pass a dict."
+        "JSON string like '{\"train\": 100}' specifying the per-class resample "
+        "target for the training set. If used in Python directly, pass a dict."
     ),
 )
 def split_dataset_command(

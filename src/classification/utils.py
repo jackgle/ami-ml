@@ -138,6 +138,10 @@ class ImageModelWithStaticFeatures(nn.Module):
         model_args = {"pretrained": pretrained, "num_classes": 0}
         if img_size is not None:
             model_args["img_size"] = img_size
+        # Dropout on pooled image features only (timm head dropout), matching
+        # the no-static-features path; static embeddings are not dropped
+        if dropout_rate > 0:
+            model_args["drop_rate"] = dropout_rate
         self.backbone = timm.create_model(model_type, **model_args)
         backbone_out_dim = self.backbone.num_features
 
@@ -145,7 +149,6 @@ class ImageModelWithStaticFeatures(nn.Module):
         self.embeddings = nn.ModuleList([
             nn.Embedding(num_cat, static_embed_dim) for num_cat in static_feat_num_categories
         ])
-        self.dropout = nn.Dropout(dropout_rate) if dropout_rate > 0 else nn.Identity()
         self.classifier = nn.Linear(backbone_out_dim + static_embed_dim * len(static_feat_num_categories), num_classes)
 
     def forward(self, x_img, x_static_cat):
@@ -156,7 +159,6 @@ class ImageModelWithStaticFeatures(nn.Module):
         ]
         static_feat = torch.cat(static_embeds, dim=1)
         x = torch.cat([img_feat, static_feat], dim=1)
-        x = self.dropout(x)
         return self.classifier(x)
 
 

@@ -176,12 +176,19 @@ def split_dataset(
         val_set = val_set[val_set[category_key].isin(train_categories)].copy()
         test_set = test_set[test_set[category_key].isin(train_categories)].copy()
 
+    # Only the training set is resampled. Validation and test sets keep their
+    # natural class distribution; class imbalance there is handled at evaluation
+    # time with class-balanced loss and accuracy.
     if resample:
         if not resample_target_counts:
             raise ValueError("resample_target_counts must be provided when resample is True")
+        ignored_keys = set(resample_target_counts) - {"train"}
+        if ignored_keys:
+            print(
+                f"Warning: resample targets for {sorted(ignored_keys)} are ignored; "
+                "only the training set is resampled."
+            )
         train_set = _resample_set(train_set, resample_target_counts.get('train', 100), category_key)
-        val_set = _resample_set(val_set, resample_target_counts.get('val', 100), category_key)
-        test_set = _resample_set(test_set, resample_target_counts.get('test', 100), category_key)
 
     data = {"train": train_set, "val": val_set, "test": test_set}
     for set_name in data:
